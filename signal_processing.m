@@ -20,12 +20,10 @@ if length(signal) < 30
 end
 
 % === 步骤1：EEMD 分解 ===
-% 注意：需要 MATLAB R2018a 以上版本，或安装 EMD 工具箱
-% 如果你的 MATLAB 版本较低，会报错，请跳到下面的"备用方案"
 try
-    % 使用 MATLAB 自带的 emd 函数（R2018a+）
-    imfs = emd(signal, 'Interpolation', 'pchip');
-    % 如果 emd 不可用，可以尝试用 eemd（需要下载工具箱）
+ 
+   imfs = my_emd(signal, 'Interpolation', 'pchip');
+   
 catch ME
     % 如果 EMD 失败，使用备用方案（直接 FFT 滤波）
     warning('EMD 分解失败，使用备用滤波方案: %s', ME.message);
@@ -34,10 +32,10 @@ catch ME
 end
 
 % 如果 imfs 是矩阵，确保每一列是一个 IMF
-if size(imfs, 1) < size(imfs, 2)
-    imfs = imfs';
+if size(imfs, 1) < size(imfs, 2)%如果行数小于列数
+    imfs = imfs';% 转置矩阵
 end
-n_imfs = size(imfs, 2);
+n_imfs = size(imfs, 2);% 获取列数（IMF个数）
 
 % === 步骤2：分离心率相关 IMF（频率在 0.8~3.0 Hz）===
 hr_imfs = [];
