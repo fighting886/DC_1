@@ -212,13 +212,12 @@ end
 
 %% 剪掉延拓：把之前镜像补的那段去掉，只留原信号长度
 function original_signal = remove_extension(extended_signal, original_length, ext_length)
-    % 原信号在 extended_signal 里的位置是：ext_length+1 到 ext_length+original_length
+    % 所以原信号在 extended_signal 里的位置是：ext_length+1 到 ext_length+original_length
     original_signal = extended_signal(ext_length+1:ext_length+original_length);
 end
 
-%% 改进的极值点检测：找出所有波峰和波谷，容忍平台区
 function [maxima_idx, maxima_val, minima_idx, minima_val] = improved_find_extrema(signal)
-    
+    % 改进的极值点检测（已在前面定义）
     n = length(signal);
     signal = signal(:);
     
@@ -226,8 +225,7 @@ function [maxima_idx, maxima_val, minima_idx, minima_val] = improved_find_extrem
     maxima_val = [];
     minima_idx = [];
     minima_val = [];
-
-    % 从第 2 个点扫到倒数第 2 个点（两端的点没有左右邻居，不算极值
+    
     for i = 2:n-1
         if signal(i) > signal(i-1) && signal(i) >= signal(i+1)
             maxima_idx = [maxima_idx; i];
@@ -240,38 +238,32 @@ function [maxima_idx, maxima_val, minima_idx, minima_val] = improved_find_extrem
     end
 end
 
-%% 模式混叠检测：怀疑这层 IMF 里混了不同节奏，给个警告
 function [is_mixing, mixing_ratio] = detect_mode_mixing(imf)
-    %   对 IMF 做 Hilbert 变换，求瞬时频率。
-    %   如果瞬时频率忽高忽低（标准差大），说明这层里混了不同节奏 → 模式混叠。
-    %   用"瞬时频率标准差 / 均值"当指标，超过 0.5 就报警。
+    % 模式混叠检测
     n = length(imf);
     
-   %% 用 FFT 实现 Hilbert 变换
-    % Hilbert 变换的频域做法：正频率乘 2，负频率置 0，直流和奈奎斯特保持不变
+    % 简化的Hilbert变换
     X = fft(imf);
     h = zeros(n,1);
     if mod(n,2) == 0
-        % 偶数长度：直流(1) 和奈奎斯特(n/2+1) 系数为 1，其余正频率为 2
         h([1, n/2+1]) = 1;
         h(2:n/2) = 2;
     else
         h(1) = 1;
-        % 奇数长度：直流(1) 系数为 1，其余正频率为 2
         h(2:(n+1)/2) = 2;
     end
     
-    Y = X .* h;% 频域滤波
-    y = ifft(Y); %回到时域，得到解析信号
+    Y = X .* h;
+    y = ifft(Y);
     
     % 瞬时频率
-    phase = unwrap(angle(y));% 取相位并解卷绕，避免跳变
-    inst_freq = abs(diff(phase) / (2*pi));% 相位差 / 2π = 瞬时频率
-    inst_freq = [inst_freq; inst_freq(end)];% 补一个点，保持长度和 imf 一致
+    phase = unwrap(angle(y));
+    inst_freq = abs(diff(phase) / (2*pi));
+    inst_freq = [inst_freq; inst_freq(end)];
     
     % 检测
-    freq_std = std(inst_freq); % 瞬时频率的波动程度
-    freq_mean = mean(inst_freq);  % 瞬时频率的平均值
-    mixing_ratio = freq_std / (freq_mean + eps); % 波动 / 均值，eps 防除以 0
-    is_mixing = mixing_ratio > 0.5; % 波动太大就认为混叠
+    freq_std = std(inst_freq);
+    freq_mean = mean(inst_freq);
+    mixing_ratio = freq_std / (freq_mean + eps);
+    is_mixing = mixing_ratio > 0.5;
 end

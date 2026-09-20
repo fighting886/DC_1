@@ -178,7 +178,7 @@ noise = result.noise_signal;
 denoised = result.denoised_signal;
 hr = result.heart_rate;
 
-figure('Position', [100, 100, 1200, 800]);
+figure('Position', [100, 50, 1200, 800]);
 
 % 子图1：原始信号
 subplot(2, 2, 1);

@@ -1,7 +1,8 @@
 clear; clc; close all;
 
 % 加载配置
-run('config.m');
+cfg = config();
+% 用 cfg.FPS 而不是裸 FPS
 
 fprintf('\n================================================\n');
 fprintf('心率检测系统 - 视频文件模式\n');
@@ -16,8 +17,8 @@ v = VideoReader(video_path);
 % 获取视频信息
 fps = v.FrameRate;                    % 实际帧率
 total_frames = floor(v.Duration * fps); % 总帧数
-process_frames = min(total_frames, TOTAL_FRAMES);
-frame_step = max(1, round(fps / FPS));
+process_frames = min(total_frames, cfg.TOTAL_FRAMES);
+frame_step = max(1, round(fps / cfg.FPS));
 
 %% ========== 初始化人脸检测器 ==========
 faceDetector = vision.CascadeObjectDetector();
@@ -31,7 +32,7 @@ tracking_counter = 0;    % ✅ 新增：追踪持续帧数
 tracking_mode = false;   % ✅ 新增：是否处于追踪模式
 
 % 创建显示窗口
-figure('Name', '心率检测系统', 'NumberTitle', 'off', 'Position', [100, 100, 800, 600]);
+figure('Name', '心率检测系统', 'NumberTitle', 'off', 'Position', [100, 50, 800, 600]);
 v.CurrentTime = 0;
 
 while frame_count < process_frames && hasFrame(v)
@@ -110,10 +111,12 @@ while frame_count < process_frames && hasFrame(v)
         frame = insertText(frame, [face_rect(1), face_rect(2)-10], 'Face', ...
                           'FontSize', 14, 'TextColor', 'green', 'BoxOpacity', 0);
         frame = insertText(frame, [10, 180], sprintf('追踪: %d帧', tracking_counter), ...
-            'FontSize', 12, 'TextColor', 'cyan', 'BoxOpacity', 0.5);
+            'FontSize', 12, 'TextColor', 'cyan', 'BoxOpacity', 0.5,...
+            'Font', 'SimHei');
     else
         frame = insertText(frame, [10, 90], '⚠️ 未检测到人脸', ...
-            'FontSize', 14, 'TextColor', 'red', 'BoxOpacity', 0.5);
+            'FontSize', 14, 'TextColor', 'red', 'BoxOpacity', 0.5,...
+            'Font', 'SimHei');
     end
 
         % 显示实时 SNR（如果信号足够）
@@ -124,7 +127,7 @@ while frame_count < process_frames && hasFrame(v)
         end
     
     % 显示采集进度
-    progress = round(frame_count / TOTAL_FRAMES * 100);
+    progress = round(frame_count / cfg.TOTAL_FRAMES * 100);
     frame = insertText(frame, [10, 30], sprintf('Progress: %d%%', progress), ...
                       'FontSize', 14, 'TextColor', 'green', 'BoxOpacity', 0.5);
     frame = insertText(frame, [10, 60], sprintf('Signal points: %d', frame_count), ...
@@ -145,7 +148,7 @@ if length(green_signals) < 30
 end
 
 signal = green_signals(:);  % 转为列向量
-actual_fps = length(signal) / (length(signal) / (fps/frame_step));
+actual_fps = fps/frame_step;
 fprintf('实际采样率: %.1f fps\n', actual_fps);
 
 % 调用信号处理函数
@@ -167,28 +170,3 @@ fprintf('================================================\n');
 save('signal_results.mat', 'signal', 'result');
 fprintf('\n💾 信号已保存到 signal_results.mat\n');
 
-
-%% ========== 辅助函数：计算 SNR ==========
-function snr = calculate_snr(signal)
-% 简单 SNR 计算（用于实时显示）
-signal = signal(:);
-if length(signal) < 10
-    snr = 0;
-    return;
-end
-
-signal_centered = signal - mean(signal);
-signal_power = var(signal_centered);
-diff_signal = diff(signal_centered);
-noise_power = (std(diff_signal) / sqrt(2))^2;
-
-if noise_power < 1e-10
-    noise_power = 1e-10;
-end
-if signal_power < 1e-10
-    snr = 0;
-else
-    snr = 10 * log10(signal_power / noise_power);
-    snr = max(0, min(30, snr));
-end
-end
